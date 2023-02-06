@@ -18,6 +18,9 @@ namespace social_nav_utils {
  */
 class HeadingDirectionDisturbance {
 public:
+	/// Default width of the region of cross_center direction angles (assuming circular model of the 'ego' agent)
+	static constexpr auto OCCUPANCY_MODEL_RADIUS = 0.28;
+
 	/**
 	 * @brief Parameterized constructor
 	 * @param x_ego
@@ -39,7 +42,8 @@ public:
 		double y_other,
 		double yaw_other,
 		double vx_other,
-		double vy_other
+		double vy_other,
+		double occupancy_model_radius = OCCUPANCY_MODEL_RADIUS
 	);
 
 	double getDirectionScale() const {
@@ -64,7 +68,8 @@ public:
 		double yaw_ego,
 		double x_other,
 		double y_other,
-		double yaw_other
+		double yaw_other,
+		double occupancy_model_radius = OCCUPANCY_MODEL_RADIUS
 	);
 
 	static double computeFovScale(double relative_location_angle, double fov_ego);

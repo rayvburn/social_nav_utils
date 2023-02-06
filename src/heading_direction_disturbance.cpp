@@ -1,6 +1,8 @@
 #include <social_nav_utils/heading_direction_disturbance.h>
 
+#include <social_nav_utils/distance_vector.h>
 #include <social_nav_utils/gaussians.h>
+#include <social_nav_utils/relative_location.h>
 
 #include <angles/angles.h>
 #include <stdexcept>
@@ -19,7 +21,8 @@ HeadingDirectionDisturbance::HeadingDirectionDisturbance(
 	double y_other,
 	double yaw_other,
 	double vx_other,
-	double vy_other
+	double vy_other,
+	double occupancy_model_radius
 ) {
 	double relative_location_angle = 0.0;
 	std::tie(direction_disturbance_, relative_location_angle) = computeDirectionDisturbance(
@@ -28,7 +31,8 @@ HeadingDirectionDisturbance::HeadingDirectionDisturbance(
 		yaw_ego,
 		x_other,
 		y_other,
-		yaw_other
+		yaw_other,
+		occupancy_model_radius
 	);
 	fov_scale_ = computeFovScale(relative_location_angle, fov_ego);
 	speed_scale_ = computeSpeedScale(vx_other, vy_other);
@@ -41,30 +45,18 @@ std::pair<double, double> HeadingDirectionDisturbance::computeDirectionDisturban
 	double yaw_ego,
 	double x_other,
 	double y_other,
-	double yaw_other
+	double yaw_other,
+	double occupancy_model_radius
 ) {
-	double dist_vector[2] = {0.0};
-	dist_vector[0] = x_other - x_ego;
-	dist_vector[1] = y_other - y_ego;
-
-	// length of the vector
-	double dist_vector_length = std::sqrt(
-	  std::pow(dist_vector[0], 2)
-	  + std::pow(dist_vector[1], 2)
-	);
-
-	// direction of vector connecting robot and person (defines where the robot is located in relation to a person [ego agent])
-	double dist_vector_angle = std::atan2(dist_vector[1], dist_vector[0]);
-
-	// relative location vector angle (defines side where the robot is located in relation to a person)
-	double rel_loc_angle = angles::normalize_angle(dist_vector_angle - yaw_ego);
+	DistanceVector dist_vector(x_ego, y_ego, x_other, y_other);
+	RelativeLocation rel_loc(dist_vector, yaw_ego);
 
 	// old notation: alpha-beta can be mapped to: i -> robot, j -> person
-	double gamma = angles::normalize_angle(rel_loc_angle - yaw_other);
+	double gamma = angles::normalize_angle(rel_loc.getAngle() - yaw_other);
 
 	// calculate threshold angle values, normalize angles
 	/// indicates that j moves in the same direction as i
-	double gamma_eq = angles::normalize_angle(dist_vector_angle - 2 * yaw_ego);
+	double gamma_eq = angles::normalize_angle(dist_vector.getAngle() - 2 * yaw_ego);
 	/// indicates that j moves in a direction opposite to i
 	double gamma_cc = angles::normalize_angle(M_PI - 2 * yaw_ego);
 	/// indicates that a ray created from a centre point and a heading of j crosses the centre point of i
@@ -75,14 +67,6 @@ std::pair<double, double> HeadingDirectionDisturbance::computeDirectionDisturban
 	 * e.g. opposite direction adjoins with `cross behind` and `outwards` ranges.
 	 * Range between direction regions can be used as a variance to model gaussian cost
 	 */
-	// decode relative location (right/left side)
-	std::string relative_location_side = "unknown";
-	if (rel_loc_angle < 0.0) {
-	  relative_location_side = "right";
-	} else if (rel_loc_angle >= 0.0) {
-	  relative_location_side = "left";
-	}
-
 	// not all angles are required in this method, some values are computed for future use
 	double gamma_cf_start = 0.0;
 	double gamma_cf_finish = 0.0;
@@ -91,33 +75,30 @@ std::pair<double, double> HeadingDirectionDisturbance::computeDirectionDisturban
 	double gamma_out_start = 0.0;
 	double gamma_out_finish = 0.0;
 
-	if (relative_location_side == "right") {
+	// 'other' (robot) is located either on the right or left, compared to heading orientation of 'ego' (human)
+	if (!rel_loc.isLeftSide()) {
 		gamma_cf_start = gamma_cc;
 		gamma_cf_finish = gamma_eq;
 		gamma_cb_start = gamma_opp;
 		gamma_cb_finish = gamma_cc;
 		gamma_out_start = gamma_eq;
 		gamma_out_finish = gamma_opp;
-	} else if (relative_location_side == "left") {
+	} else {
 		gamma_cf_start = gamma_eq;
 		gamma_cf_finish = gamma_cc;
 		gamma_cb_start = gamma_cc;
 		gamma_cb_finish = gamma_opp;
 		gamma_out_start = gamma_opp;
 		gamma_out_finish = gamma_eq;
-	} else {
-		throw std::runtime_error("Unknown value of relative location");
 	}
 
 	double gamma_cf_range = std::abs(angles::shortest_angular_distance(gamma_cf_start, gamma_cf_finish));
 	double gamma_cb_range = std::abs(angles::shortest_angular_distance(gamma_cb_start, gamma_cb_finish));
 	double gamma_out_range = std::abs(angles::shortest_angular_distance(gamma_out_start, gamma_out_finish));
 
-	// determine, how wide the region of, cross_center direction angles, will be (assuming circular model of the person)
-	const double PERSON_MODEL_RADIUS = 0.4;
 	// we must keep arcsin argument below 1.0, otherwise NAN will be returned instead of a very big angle
-	double dist_gamma_range = std::max(PERSON_MODEL_RADIUS, dist_vector_length);
-	double gamma_cc_range = 2.0 * std::asin(PERSON_MODEL_RADIUS / dist_gamma_range);
+	double dist_gamma_range = std::max(occupancy_model_radius, dist_vector.getLength());
+	double gamma_cc_range = 2.0 * std::asin(occupancy_model_radius / dist_gamma_range);
 	// Variance is computed according 68–95–99.7 rule https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule
 	double gamma_cc_stddev = (gamma_cc_range / 2.0) / 3.0;
 	double gamma_cc_variance = std::pow(gamma_cc_stddev, 2);
@@ -140,7 +121,7 @@ std::pair<double, double> HeadingDirectionDisturbance::computeDirectionDisturban
 
 	double gaussian_dir_result = std::max(gaussian_dir_cc, gaussian_dir_cf);
 
-	return std::make_pair(gaussian_dir_result, rel_loc_angle);
+	return std::make_pair(gaussian_dir_result, rel_loc.getAngle());
 }
 
 double HeadingDirectionDisturbance::computeFovScale(double relative_location_angle, double fov_ego) {
