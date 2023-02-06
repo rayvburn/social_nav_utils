@@ -34,6 +34,8 @@ catkin_package(
 add_library(${PROJECT_NAME}_lib
 	include/${PROJECT_NAME}/ellipse_fitting.h
 	src/ellipse_fitting.cpp
+	include/${PROJECT_NAME}/gaussians.h
+	src/gaussians.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib
 	${catkin_LIBRARIES}
