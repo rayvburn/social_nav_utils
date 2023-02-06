@@ -26,6 +26,8 @@ catkin_package(
 		${PROJECT_NAME}_lib
 	CATKIN_DEPENDS
 		# empty
+	DEPENDS
+		EIGEN3
 )
 
 ## Library
