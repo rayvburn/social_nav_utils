@@ -34,9 +34,9 @@ double calculateGaussianAsymmetrical(
 	double x_center,
 	double y_center,
 	double yaw,
-	double sigma_h,
-	double sigma_r,
-	double sigma_s
+	double variance_h,
+	double variance_r,
+	double variance_s
 );
 
 /**
