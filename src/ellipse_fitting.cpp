@@ -184,11 +184,10 @@ bool EllipseFitting::fitTaubin(const std::vector<double>& x, const std::vector<d
 }
 
 bool EllipseFitting::fitFallbackSingle(double x, double y) {
-	// for a social navigation, a circle with a radius of 28 cm (approximation of space occupied by a human) is created
 	params_.at(0) = x;
 	params_.at(1) = y;
-	params_.at(2) = 0.28;
-	params_.at(3) = 0.28;
+	params_.at(2) = FALLBACK_SIZE;
+	params_.at(3) = FALLBACK_SIZE;
 	params_.at(4) = 0;
 	fallback_ = true;
 	return true;
