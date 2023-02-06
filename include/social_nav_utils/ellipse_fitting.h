@@ -14,6 +14,9 @@ namespace social_nav_utils {
  * https://github.com/gopiraj15/OpenCV-journey/blob/master/TaubinEllipseFit.cpp
  *
  * The method mentioned above seems to be the best that works well for ellipses determined by less than 5 points.
+ *
+ * (Internal note) Matlab implementation of fitFallbackMultiple at
+ * navigation_social/scripts/social_nav_utils_ellipse_fit_fallback_multiple.m
  */
 class EllipseFitting {
 public:
@@ -62,7 +65,7 @@ protected:
 	/// Performs heuristic ellipse creation around a single point
 	bool fitFallbackSingle(double x, double y);
 
-	/// Performs heuristic ellipse fitting once main solver returns NaNs
+	/// Performs heuristic ellipse fitting once main solver returns bad results
 	bool fitFallbackMultiple(const std::vector<double>& x, const std::vector<double>& y);
 
 	/**
@@ -72,6 +75,16 @@ protected:
 	 * https://github.com/gopiraj15/OpenCV-journey/blob/master/TaubinEllipseFit.cpp
 	 */
 	Eigen::MatrixXd convertConicToParametric(const Eigen::MatrixXd& par);
+
+	/**
+	 * @brief Computes projection of @ref v1 onto @ref v2
+	 *
+	 * Formula: https://youtu.be/74sZ-ufFdxo?t=413
+	 */
+	static std::array<double, 2> findVectorProjection(
+		const std::array<double, 2>& v1,
+		const std::array<double, 2>& v2
+	);
 
 	/**
 	 * @brief equivalent to the sign function from Matlab

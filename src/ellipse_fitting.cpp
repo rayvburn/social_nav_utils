@@ -194,7 +194,148 @@ bool EllipseFitting::fitFallbackSingle(double x, double y) {
 }
 
 bool EllipseFitting::fitFallbackMultiple(const std::vector<double>& x, const std::vector<double>& y) {
-	// TODO
+	std::vector<Point2d> pts;
+	for (size_t i = 0; i < x.size(); i++) {
+		pts.emplace_back(x.at(i), y.at(i));
+	}
+
+	// center of gravity
+	std::array<double, 2> cog;
+	cog.at(0) = std::accumulate(x.cbegin(), x.cend(), 0.0) / x.size();
+	cog.at(1) = std::accumulate(y.cbegin(), y.cend(), 0.0) / y.size();
+
+	// find longest vector connecting points + store their directions
+	// map of index and length
+	std::map<std::pair<size_t, size_t>, double> v_lengths;
+	// map of index and direction
+	std::map<std::pair<size_t, size_t>, double> v_dirs;
+	for (size_t i = 0; i < x.size(); i++) {
+		for (size_t j = 0; j < x.size(); j++) {
+			if (i == j) {
+				continue;
+			}
+			std::array<double, 2> vector;
+			vector.at(0) = x.at(j) - x.at(i);
+			vector.at(1) = y.at(j) - y.at(i);
+			double len = std::hypot(vector.at(0), vector.at(1));
+			v_lengths.insert({{i, j}, len});
+			double dir = std::atan2(vector.at(1), vector.at(0));
+			v_dirs.insert({{i, j}, dir});
+		}
+	}
+
+	// sort lengths, easier to use vector container; ref: https://stackoverflow.com/a/19528891
+	std::vector<std::tuple<std::pair<size_t, size_t>, double, double>> v_to_sort;
+	// iterating over lengths and directions
+	for (
+		auto itl = v_lengths.cbegin(), itd = v_dirs.cbegin();
+		itl != v_lengths.cend() && itd != v_dirs.cend();
+		++itl, ++itd
+	) {
+		v_to_sort.push_back(
+			std::make_tuple(
+				std::make_pair(itl->first.first, itl->first.second),
+				itl->second,
+				itd->second
+			)
+		);
+	}
+	std::sort(
+		v_to_sort.begin(),
+		v_to_sort.end(),
+		[=](
+			std::tuple<std::pair<size_t, size_t>, double, double>& a,
+			std::tuple<std::pair<size_t, size_t>, double, double>& b
+		) {
+			return std::get<1>(a) < std::get<1>(b);
+		}
+	);
+
+	std::pair<std::pair<size_t, size_t>, double> v_len_longest = std::make_pair(
+		std::get<0>(v_to_sort.back()),
+		std::get<1>(v_to_sort.back())
+	);
+	std::pair<std::pair<size_t, size_t>, double> v_dir_longest = std::make_pair(
+		std::get<0>(v_to_sort.back()),
+		std::get<2>(v_to_sort.back())
+	);
+
+	// create a vector
+	std::array<double, 2> v_longest;
+	// longest vector data indices
+	auto l_index_from = v_len_longest.first.second;
+	auto l_index_to = v_len_longest.first.first;
+	v_longest.at(0) = x.at(l_index_to) - x.at(l_index_from);
+	v_longest.at(1) = y.at(l_index_to) - y.at(l_index_from);
+
+	// create a unit vector perpendicular to the longest
+	// vpl - vector perpendicular to the longest
+	double vpl_dir = angles::normalize_angle(v_dir_longest.second + M_PI / 2.0);
+	// create a vector directed perpendicularly (a.k.a. `perp_longest_v`)
+	std::array<double, 2> v_perp_unit;
+	// effect of matrix multiplication: rotation matrix by unit vector [1.0; 0.0]
+	v_perp_unit.at(0) = +1.0 * std::cos(vpl_dir) - 0.0 * std::sin(vpl_dir);
+	v_perp_unit.at(1) = +1.0 * std::sin(vpl_dir) + 0.0 * std::cos(vpl_dir);
+
+	/*
+	 * find 2 longest vector projections onto lines perpendicular to the
+	 * longest; vectors are computed from the COG
+	 */
+	std::vector<std::pair<double, bool>> v_perp_projs;
+	for (size_t i = 0; i < x.size(); i++) {
+		std::array<double, 2> vector;
+		vector.at(0) = x.at(i) - cog.at(0);
+		vector.at(1) = y.at(i) - cog.at(1);
+		auto v_proj = findVectorProjection(vector, v_perp_unit);
+		auto v_proj_len = std::hypot(v_proj.at(0), v_proj.at(1));
+		// check whether projection points above or below
+		double v_proj_dir = std::atan2(v_proj.at(1), v_proj.at(0));
+		double v_dirs_diff = angles::normalize_angle(vpl_dir - v_proj_dir);
+		// a.k.a. dir_rel
+		bool perp_compliant_dir = false;
+		if (std::abs(v_dirs_diff) < 1e-03) {
+			perp_compliant_dir = true;
+		}
+		// collect data
+		v_perp_projs.emplace_back(v_proj_len, perp_compliant_dir);
+	}
+
+	// extract v_projs in the same direction and choose the longest
+	double v_perp_proj_length_c_max = -1.0;
+	double v_perp_proj_length_nc_max = -1.0;
+	for (const auto& v_proj: v_perp_projs) {
+		auto perp_compliant_dir = v_proj.second;
+		auto length = v_proj.first;
+		if (perp_compliant_dir && length > v_perp_proj_length_c_max) {
+			v_perp_proj_length_c_max = length;
+		} else if (!perp_compliant_dir && length > v_perp_proj_length_nc_max) {
+			v_perp_proj_length_nc_max = length;
+		}
+	}
+
+	// find exact parameters of the ellipse
+	// orientation from the longest vector
+	double phi1 = v_dir_longest.second;
+	double phi2 = angles::normalize_angle(v_dir_longest.second + M_PI);
+	double phi = phi1;
+	if (std::abs(phi1) > std::abs(phi2)) {
+		phi = phi2;
+	}
+
+	// semi axes
+	double aaxis = v_len_longest.second / 2;
+	double baxis = (v_perp_proj_length_c_max + v_perp_proj_length_nc_max) / 2;
+
+	// small hack when there are people in-line only
+	if (baxis < 1e-03) {
+		baxis = FALLBACK_SIZE;
+	}
+
+	params_.at(0) = cog.at(0);
+	params_.at(1) = cog.at(1);
+	params_.at(2) = aaxis;
+	params_.at(3) = baxis;
+	params_.at(4) = phi;
 	fallback_ = true;
 	return true;
 }
@@ -243,6 +384,25 @@ Eigen::MatrixXd EllipseFitting::convertConicToParametric(const Eigen::MatrixXd& 
 	ell(4, 0) = angle;
 
 	return ell;
+}
+
+std::array<double, 2> EllipseFitting::findVectorProjection(
+	const std::array<double, 2>& v1,
+	const std::array<double, 2>& v2
+) {
+	// ref: https://iq.opengenus.org/dot-product-of-two-vectors-in-cpp/, NOTE: inner_product does not work here
+	double dot_product = 0.0;
+	for(size_t i = 0; i < v1.size(); i++) {
+		dot_product += v1.at(i) * v2.at(i);
+	}
+
+	double v2_length = std::hypot(v2.at(0), v2.at(1));
+
+	double mult = dot_product / std::pow(v2_length, 2);
+	std::array<double, 2> proj;
+	proj.at(0) = mult * v2.at(0);
+	proj.at(1) = mult * v2.at(1);
+	return proj;
 }
 
 } // namespace social_nav_utils
