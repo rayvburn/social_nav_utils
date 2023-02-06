@@ -23,23 +23,23 @@ catkin_package(
 	INCLUDE_DIRS
 		include
 	LIBRARIES
-		social_nav_utils
+		${PROJECT_NAME}_lib
 	CATKIN_DEPENDS
 		# empty
 )
 
 ## Library
-add_library(social_nav_utils
+add_library(${PROJECT_NAME}_lib
 	include/${PROJECT_NAME}/ellipse_fitting.h
 	src/ellipse_fitting.cpp
 )
-target_link_libraries(social_nav_utils
+target_link_libraries(${PROJECT_NAME}_lib
 	${catkin_LIBRARIES}
 	${Eigen_LIBRARIES}
 )
 
 ## Install
-install(TARGETS social_nav_utils
+install(TARGETS ${PROJECT_NAME}_lib
 	ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 )
@@ -49,6 +49,6 @@ install(TARGETS social_nav_utils
 if (CATKIN_ENABLE_TESTING)
 	catkin_add_gtest(test_ellipse_fitting test/test_ellipse_fitting.cpp)
 	if(TARGET test_ellipse_fitting)
-		target_link_libraries(test_ellipse_fitting social_nav_utils)
+		target_link_libraries(test_ellipse_fitting ${PROJECT_NAME}_lib)
 	endif()
 endif()
