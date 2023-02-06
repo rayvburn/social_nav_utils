@@ -34,10 +34,14 @@ double calculateGaussianAsymmetrical(
 	double x_center,
 	double y_center,
 	double yaw,
-	double sigma_h,
-	double sigma_r,
-	double sigma_s
+	double variance_h,
+	double variance_r,
+	double variance_s
 ) {
+	double sigma_h = std::sqrt(variance_h);
+	double sigma_r = std::sqrt(variance_r);
+	double sigma_s = std::sqrt(variance_s);
+
 	double alpha = std::atan2(y - y_center, x - x_center) - yaw + M_PI_2;
 	alpha = angles::normalize_angle(alpha);
 	double sigma = (alpha <= 0.0 ? sigma_r : sigma_h);
