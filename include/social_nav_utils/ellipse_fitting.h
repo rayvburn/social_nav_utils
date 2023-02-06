@@ -17,6 +17,9 @@ namespace social_nav_utils {
  */
 class EllipseFitting {
 public:
+	// approximation of space occupied by, e.g., a human
+	static constexpr auto FALLBACK_SIZE = 0.28;
+
 	/// Performs ellipse fitting to the points given by @ref x and @ref y
 	EllipseFitting(const std::vector<double>& x, const std::vector<double>& y);
 
