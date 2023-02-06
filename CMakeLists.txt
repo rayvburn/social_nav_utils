@@ -36,6 +36,8 @@ add_library(${PROJECT_NAME}_lib
 	src/ellipse_fitting.cpp
 	include/${PROJECT_NAME}/gaussians.h
 	src/gaussians.cpp
+	include/${PROJECT_NAME}/heading_direction_disturbance.h
+	src/heading_direction_disturbance.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib
 	${catkin_LIBRARIES}
