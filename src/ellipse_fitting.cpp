@@ -176,11 +176,18 @@ bool EllipseFitting::fitTaubin(const std::vector<double>& x, const std::vector<d
 	params_.at(4) = parametric(4, 0);
 
 	// verify if results are good
-	bool has_nan = std::find(params_.begin(), params_.end(), NAN) != params_.end();
-	bool both_axes_negligible = params_.at(2) < 1e-03 && params_.at(3) < 1e-03;
+	auto nan_it = std::find_if(
+		params_.begin(),
+		params_.end(),
+		[](const double& param) {
+			return std::isnan(param);
+		}
+	);
+	bool has_nan = nan_it != params_.end();
+	bool any_axis_negligible = params_.at(2) < 1e-06 || params_.at(3) < 1e-06;
 	bool coord_out_of_bounds = std::abs(params_.at(0)) >= 1e06 || std::abs(params_.at(1)) >= 1e06;
 	bool axis_out_of_bounds = std::abs(params_.at(2)) >= 1e06 || std::abs(params_.at(3)) >= 1e06;
-	return !(has_nan || both_axes_negligible || coord_out_of_bounds || axis_out_of_bounds);
+	return !(has_nan || any_axis_negligible || coord_out_of_bounds || axis_out_of_bounds);
 }
 
 bool EllipseFitting::fitFallbackSingle(double x, double y) {
