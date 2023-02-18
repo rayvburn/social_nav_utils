@@ -40,6 +40,8 @@ add_library(${PROJECT_NAME}_lib
 	src/heading_direction_disturbance.cpp
 	include/${PROJECT_NAME}/personal_space_intrusion.h
 	src/personal_space_intrusion.cpp
+	include/${PROJECT_NAME}/formation_space_intrusion.h
+	src/formation_space_intrusion.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib
 	${catkin_LIBRARIES}
@@ -78,5 +80,9 @@ if (CATKIN_ENABLE_TESTING)
 	catkin_add_gtest(test_personal_space_intrusion test/test_personal_space_intrusion.cpp)
 	if(TARGET test_personal_space_intrusion)
 		target_link_libraries(test_personal_space_intrusion ${PROJECT_NAME}_lib)
+	endif()
+	catkin_add_gtest(test_formation_space_intrusion test/test_formation_space_intrusion.cpp)
+	if(TARGET test_formation_space_intrusion)
+		target_link_libraries(test_formation_space_intrusion ${PROJECT_NAME}_lib)
 	endif()
 endif()
