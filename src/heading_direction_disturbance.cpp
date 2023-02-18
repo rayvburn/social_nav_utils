@@ -1,14 +1,14 @@
 #include <social_nav_utils/heading_direction_disturbance.h>
 
-#include <social_nav_utils/distance_vector.h>
 #include <social_nav_utils/gaussians.h>
+#include <social_nav_utils/lines_intersection.h>
 #include <social_nav_utils/relative_location.h>
 
-#include <angles/angles.h>
-#include <stdexcept>
 #include <math.h>
-#include <string>
-#include <tuple>
+
+#include <eigen3/Eigen/Geometry>
+// may prevent compilation errors occurring at calls to matrix.inverse()
+#include <eigen3/Eigen/LU>
 
 namespace social_nav_utils {
 
@@ -16,143 +16,152 @@ HeadingDirectionDisturbance::HeadingDirectionDisturbance(
 	double x_ego,
 	double y_ego,
 	double yaw_ego,
-	double fov_ego,
+	double cov_xx_ego,
+	double cov_xy_ego,
+	double cov_yy_ego,
 	double x_other,
 	double y_other,
 	double yaw_other,
 	double vx_other,
 	double vy_other,
-	double occupancy_model_radius
-) {
-	double relative_location_angle = 0.0;
-	std::tie(direction_disturbance_, relative_location_angle) = computeDirectionDisturbance(
-		x_ego,
-		y_ego,
-		yaw_ego,
-		x_other,
-		y_other,
-		yaw_other,
-		occupancy_model_radius
+	double occupancy_model_radius,
+	double fov_ego
+):
+	pose_ego_(Eigen::Vector3d(x_ego, y_ego, yaw_ego)),
+	pose_other_(Eigen::Vector3d(x_other, y_other, yaw_other)),
+	vel_other_(vx_other, vy_other),
+	ego_occupancy_model_radius_(occupancy_model_radius),
+	fov_ego_(fov_ego)
+{
+	cov_pos_ego_ << cov_xx_ego, cov_xy_ego, cov_xy_ego, cov_yy_ego;
+
+	direction_disturbance_scale_ = computeDirectionDisturbance(
+		pose_ego_(0),
+		pose_ego_(1),
+		pose_ego_(2),
+		cov_pos_ego_(0, 0),
+		cov_pos_ego_(0, 1),
+		cov_pos_ego_(1, 1),
+		pose_other_(0),
+		pose_other_(1),
+		pose_other_(2),
+		ego_occupancy_model_radius_
 	);
-	fov_scale_ = computeFovScale(relative_location_angle, fov_ego);
-	speed_scale_ = computeSpeedScale(vx_other, vy_other);
-	distance_scale_ = computeDistScale(x_ego, y_ego, x_other, y_other);
+	RelativeLocation rel_loc(pose_ego_(0), pose_ego_(1), yaw_ego, pose_other_(0), pose_other_(1));
+	fov_scale_ = computeFovScale(rel_loc.getAngle(), fov_ego_);
+	speed_scale_ = computeSpeedScale(vel_other_(0), vel_other_(1));
+	distance_scale_ = computeDistScale(pose_ego_(0), pose_ego_(1), pose_other_(0), pose_other_(1));
 }
 
-std::pair<double, double> HeadingDirectionDisturbance::computeDirectionDisturbance(
+void HeadingDirectionDisturbance::normalize(double other_circumradius, double max_speed) {
+	// let's assume that yaw of 'other' that  points straight into the center of 'ego'
+	auto v_eo = pose_ego_ - pose_other_;
+	double yaw_other_max_disturbance = std::atan2(v_eo(1), v_eo(0));
+	double direction_disturbance_scale_max = computeDirectionDisturbance(
+		pose_ego_(0),
+		pose_ego_(1),
+		pose_ego_(2),
+		cov_pos_ego_(0, 0),
+		cov_pos_ego_(0, 1),
+		cov_pos_ego_(1, 1),
+		pose_other_(0),
+		pose_other_(1),
+		yaw_other_max_disturbance,
+		ego_occupancy_model_radius_
+	);
+	// let's assume that 'other' is located along the sight axis of the 'ego'
+	double fov_scale_max = computeFovScale(0.0, fov_ego_);
+	// simplified case (length of the velocity vector is not calculated here)
+	double speed_scale_max = max_speed;
+	// inverse proportional - minimum possible distance between 'other' and 'ego' centers
+	double dist_scale_min = other_circumradius + ego_occupancy_model_radius_;
+
+	// normalize scales
+	direction_disturbance_scale_ /= direction_disturbance_scale_max;
+	fov_scale_ /= fov_scale_max;
+	speed_scale_ /= max_speed;
+	distance_scale_ /= dist_scale_min;
+}
+
+double HeadingDirectionDisturbance::computeDirectionDisturbance(
 	double x_ego,
 	double y_ego,
 	double yaw_ego,
+	double cov_xx_ego,
+	double cov_xy_ego,
+	double cov_yy_ego,
 	double x_other,
 	double y_other,
 	double yaw_other,
 	double occupancy_model_radius
 ) {
-	DistanceVector dist_vector(x_ego, y_ego, x_other, y_other);
-	RelativeLocation rel_loc(dist_vector, yaw_ego);
+	// make vectors really long so the intersection is appropriately detected
+	Eigen::Vector2d v_dir(VECTORS_LEN_INTERSECTION, 0.0);
+	Eigen::Rotation2Dd rot_ego(yaw_ego);
+	Eigen::Rotation2Dd rot_other(yaw_other);
+	// vectors for shifting from the mean positions
+	auto v_intsec_ego = rot_ego * v_dir;
+	auto v_intsec_other = rot_other * v_dir;
+	// find shifted positions from prolonged vectors
+	Eigen::Vector2d pos_ego(x_ego, y_ego);
+	Eigen::Vector2d pos_other(x_other, y_other);
+	// compute points that are used to find intersection
+	auto pos_ego_shifted1 = pos_ego - v_intsec_ego;
+	auto pos_ego_shifted2 = pos_ego + v_intsec_ego;
+	auto pos_other_shifted1 = pos_other - v_intsec_other;
+	auto pos_other_shifted2 = pos_other + v_intsec_other;
 
-	// old notation: alpha-beta can be mapped to: i -> robot, j -> person
-	double gamma = angles::normalize_angle(rel_loc.getAngle() - yaw_other);
+	LinesIntersection lin_intsec(
+		std::vector<double>{pos_ego_shifted1(0), pos_ego_shifted2(0)},
+		std::vector<double>{pos_ego_shifted1(1), pos_ego_shifted2(1)},
+		std::vector<double>{pos_other_shifted1(0), pos_other_shifted2(0)},
+		std::vector<double>{pos_other_shifted1(1), pos_other_shifted2(1)}
+	);
 
-	// calculate threshold angle values, normalize angles
-	/// indicates that j moves in the same direction as i
-	double gamma_eq = angles::normalize_angle(dist_vector.getAngle() - 2 * yaw_ego);
-	/// indicates that j moves in a direction opposite to i
-	double gamma_cc = angles::normalize_angle(M_PI - 2 * yaw_ego);
-	/// indicates that a ray created from a centre point and a heading of j crosses the centre point of i
-	double gamma_opp = angles::normalize_angle(gamma_eq - M_PI);
-
-	/*
-	 * Find range of angles that indicate <opposite, crossing in front, etc> motion direction of the robot towards person
-	 * e.g. opposite direction adjoins with `cross behind` and `outwards` ranges.
-	 * Range between direction regions can be used as a variance to model gaussian cost
-	 */
-	// not all angles are required in this method, some values are computed for future use
-	double gamma_cf_start = 0.0;
-	double gamma_cf_finish = 0.0;
-	double gamma_cb_start = 0.0;
-	double gamma_cb_finish = 0.0;
-	double gamma_out_start = 0.0;
-	double gamma_out_finish = 0.0;
-
-	// 'other' (robot) is located either on the right or left, compared to heading orientation of 'ego' (human)
-	if (!rel_loc.isLeftSide()) {
-		gamma_cf_start = gamma_cc;
-		gamma_cf_finish = gamma_eq;
-		gamma_cb_start = gamma_opp;
-		gamma_cb_finish = gamma_cc;
-		gamma_out_start = gamma_eq;
-		gamma_out_finish = gamma_opp;
-	} else {
-		gamma_cf_start = gamma_eq;
-		gamma_cf_finish = gamma_cc;
-		gamma_cb_start = gamma_cc;
-		gamma_cb_finish = gamma_opp;
-		gamma_out_start = gamma_opp;
-		gamma_out_finish = gamma_eq;
+	// check if results are valid
+	if (std::isnan(lin_intsec.getX()) || std::isnan(lin_intsec.getY())) {
+		// direction axes are most likely parallel to each other (ego's vs other's)
+		return 0.0;
 	}
 
-	double gamma_cf_range = std::abs(angles::shortest_angular_distance(gamma_cf_start, gamma_cf_finish));
-	double gamma_cb_range = std::abs(angles::shortest_angular_distance(gamma_cb_start, gamma_cb_finish));
-	double gamma_out_range = std::abs(angles::shortest_angular_distance(gamma_out_start, gamma_out_finish));
+	// find covariance matrix of the occupancy model
+	// 2-sigma rule
+	auto var_occup_model = std::pow(occupancy_model_radius / SIGMA_RULE_NUM, 2.0);
+	Eigen::Matrix2d cov_occup;
+	cov_occup << var_occup_model, 0.0,
+		0.0, var_occup_model;
 
-	// we must keep arcsin argument below 1.0, otherwise NAN will be returned instead of a very big angle
-	double dist_gamma_range = std::max(occupancy_model_radius, dist_vector.getLength());
-	double gamma_cc_range = 2.0 * std::asin(occupancy_model_radius / dist_gamma_range);
-	// Variance is computed according 68–95–99.7 rule https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule
-	double gamma_cc_stddev = (gamma_cc_range / 2.0) / 3.0;
-	double gamma_cc_variance = std::pow(gamma_cc_stddev, 2);
+	// covariance matrix of the human position estimation uncertainty
+	Eigen::Matrix2d cov_pos_uncert;
+	cov_pos_uncert << cov_xx_ego, cov_xy_ego,
+		cov_xy_ego, cov_yy_ego;
 
-	/*
-	 * Note that we assume that gaussian cost of disturbance exists only within bounds of following direction angles:
-	 * - crossing-center (i.e. opposite and moving towards the person center)
-	 * - crossing-in-front
-	 */
-	// 1D Gaussian function, note that angle domain wraps at 3.14 so we must check for maximum of gaussians
-	// located at gamma_X and shifted 2 * pi to the left and right; gamma angle should already be normalized here
-	double gaussian_dir_cc = social_nav_utils::calculateGaussianAngle(gamma, gamma_cc, gamma_cc_variance);
+	// resultant covariance
+	Eigen::Matrix2d cov_result = cov_occup + cov_pos_uncert;
 
-	// 3 sigma rule - let the cost spread only over the CF region
-	double gamma_cf_stddev = (gamma_cf_range / 2.0) / 3.0;
-	double gamma_cf_variance = std::pow(gamma_cf_stddev, 2);
-	// mean - center of the cross front region
-	double gamma_cf_center = angles::normalize_angle(gamma_cf_start + gamma_cf_range / 2.0);
-	double gaussian_dir_cf = social_nav_utils::calculateGaussianAngle(gamma, gamma_cf_center, gamma_cf_variance);
-
-	double gaussian_dir_result = std::max(gaussian_dir_cc, gaussian_dir_cf);
-
-	return std::make_pair(gaussian_dir_result, rel_loc.getAngle());
+	// find Gaussian at the intersection point
+	Eigen::Vector2d pos_intsec(lin_intsec.getX(), lin_intsec.getY());
+	return calculateGaussian(pos_intsec, pos_ego, cov_result);
 }
 
 double HeadingDirectionDisturbance::computeFovScale(double relative_location_angle, double fov_ego) {
 	// check whether the robot is located within person's FOV (only then affects human's behaviour);
-	// again, 3 sigma rule is used here -> 3 sigma rule applied to the half of the FOV
-	double fov_stddev = (fov_ego / 2.0) / 3.0;
+	// 2 sigma rule is used here -> 2 sigma rule applied to the half of the FOV
+	double fov_stddev = (fov_ego / 2.0) / SIGMA_RULE_NUM;
 	double variance_fov = std::pow(fov_stddev, 2);
 	// starting from the left side, half of the `fov_ego` is located in 0.0 and rel_loc is 0.0
 	// when obstacle is in front of the object
-	double gaussian_fov = social_nav_utils::calculateGaussian(relative_location_angle, 0.0, variance_fov);
-	return gaussian_fov;
+	return calculateGaussian(relative_location_angle, 0.0, variance_fov);
 }
 
 double HeadingDirectionDisturbance::computeSpeedScale(double vel_x_other, double vel_y_other) {
 	// check if robot faces person but only rotates or is moving fast
-	double speed_factor = std::sqrt(
-		std::pow(vel_x_other, 2)
-		+ std::pow(vel_y_other, 2)
-	);
-	return speed_factor;
+	return std::hypot(vel_x_other, vel_y_other);
 }
 
 double HeadingDirectionDisturbance::computeDistScale(double x_ego, double y_ego, double x_other, double y_other) {
-	// check how far the robot is from the person
-	double eucl_dist = std::sqrt(
-		std::pow(x_other - x_ego, 2)
-		+ std::pow(y_other - y_ego, 2)
-	);
-	// exponent provides approx 0.5 @ 1 m between centers of robot and person
-	static constexpr auto DIST_FACTOR_EXP = -0.8;
-	double dist_factor = std::exp(DIST_FACTOR_EXP * eucl_dist);
+	// check how far the robot is from the person (euclidean distance)
+	return std::hypot(x_other - x_ego, y_other - y_ego);
 }
 
 } // namespace social_nav_utils
