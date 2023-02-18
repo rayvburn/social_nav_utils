@@ -38,6 +38,8 @@ add_library(${PROJECT_NAME}_lib
 	src/gaussians.cpp
 	include/${PROJECT_NAME}/heading_direction_disturbance.h
 	src/heading_direction_disturbance.cpp
+	include/${PROJECT_NAME}/personal_space_intrusion.h
+	src/personal_space_intrusion.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib
 	${catkin_LIBRARIES}
@@ -72,5 +74,9 @@ if (CATKIN_ENABLE_TESTING)
 	catkin_add_gtest(test_heading_direction_disturbance test/test_heading_direction_disturbance.cpp)
 	if(TARGET test_heading_direction_disturbance)
 		target_link_libraries(test_heading_direction_disturbance ${PROJECT_NAME}_lib)
+	endif()
+	catkin_add_gtest(test_personal_space_intrusion test/test_personal_space_intrusion.cpp)
+	if(TARGET test_personal_space_intrusion)
+		target_link_libraries(test_personal_space_intrusion ${PROJECT_NAME}_lib)
 	endif()
 endif()
