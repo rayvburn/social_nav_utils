@@ -23,6 +23,12 @@ public:
 	// approximation of space occupied by, e.g., a human
 	static constexpr auto FALLBACK_SIZE = 0.28;
 
+	/**
+	 * Multiplier for estimation of legitimate bounds of an ellipse computed with the algebraic method.
+	 * The bigger, the more trusted is the algebraic method (in favour of heuristic specialized in small input sets)
+	 */
+	static constexpr auto MARGIN_ALGEBRAIC_VALID = 1.0;
+
 	/// Performs ellipse fitting to the points given by @ref x and @ref y
 	EllipseFitting(const std::vector<double>& x, const std::vector<double>& y);
 

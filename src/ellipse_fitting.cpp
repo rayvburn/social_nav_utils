@@ -175,7 +175,28 @@ bool EllipseFitting::fitTaubin(const std::vector<double>& x, const std::vector<d
 	params_.at(3) = parametric(3, 0);
 	params_.at(4) = parametric(4, 0);
 
-	// verify if results are good
+	/*
+	 * Verify if results obtained using algebraic method are good
+	 */
+	// estimate reasonable bounds of semiaxes for validation
+	std::vector<double> x_segments_from_center;
+	std::vector<double> y_segments_from_center;
+	for (int i = 0; i < Zm.rows(); i++) {
+		x_segments_from_center.push_back(std::abs(Zm(i, 3)));
+		y_segments_from_center.push_back(std::abs(Zm(i, 4)));
+	}
+	double x_half_spread = *std::max_element(x_segments_from_center.cbegin(), x_segments_from_center.cend());
+	double y_half_spread = *std::max_element(y_segments_from_center.cbegin(), y_segments_from_center.cend());
+	// apply the margin
+	double x_half_spread_mult = x_half_spread * MARGIN_ALGEBRAIC_VALID;
+	double y_half_spread_mult = y_half_spread * MARGIN_ALGEBRAIC_VALID;
+	// reasonable bounds of center position
+	double x_coord_bounds_pos = meanx + x_half_spread_mult;
+	double x_coord_bounds_neg = meanx - x_half_spread_mult;
+	double y_coord_bounds_pos = meany + y_half_spread_mult;
+	double y_coord_bounds_neg = meany - y_half_spread_mult;
+
+	// validity predicates
 	auto nan_it = std::find_if(
 		params_.begin(),
 		params_.end(),
@@ -185,8 +206,13 @@ bool EllipseFitting::fitTaubin(const std::vector<double>& x, const std::vector<d
 	);
 	bool has_nan = nan_it != params_.end();
 	bool any_axis_negligible = params_.at(2) < 1e-06 || params_.at(3) < 1e-06;
-	bool coord_out_of_bounds = std::abs(params_.at(0)) >= 1e06 || std::abs(params_.at(1)) >= 1e06;
-	bool axis_out_of_bounds = std::abs(params_.at(2)) >= 1e06 || std::abs(params_.at(3)) >= 1e06;
+	bool coord_out_of_bounds =
+		params_.at(0) < x_coord_bounds_neg || params_.at(0) > x_coord_bounds_pos
+		|| params_.at(1) < y_coord_bounds_neg || params_.at(1) > y_coord_bounds_pos;
+	// (2.0 compensates the fact that distances are computed from the center)
+	bool axis_out_of_bounds =
+		std::abs(params_.at(2)) >= (2.0 * x_half_spread_mult)
+		|| std::abs(params_.at(3)) >= (2.0 * y_half_spread_mult);
 	return !(has_nan || any_axis_negligible || coord_out_of_bounds || axis_out_of_bounds);
 }
 
