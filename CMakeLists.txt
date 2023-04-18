@@ -42,6 +42,8 @@ add_library(${PROJECT_NAME}_lib
 	src/personal_space_intrusion.cpp
 	include/${PROJECT_NAME}/formation_space_intrusion.h
 	src/formation_space_intrusion.cpp
+	include/${PROJECT_NAME}/passing_speed_comfort.h
+	src/passing_speed_comfort.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib
 	${catkin_LIBRARIES}
@@ -84,5 +86,9 @@ if (CATKIN_ENABLE_TESTING)
 	catkin_add_gtest(test_formation_space_intrusion test/test_formation_space_intrusion.cpp)
 	if(TARGET test_formation_space_intrusion)
 		target_link_libraries(test_formation_space_intrusion ${PROJECT_NAME}_lib)
+	endif()
+	catkin_add_gtest(test_passing_speed_comfort test/test_passing_speed_comfort.cpp)
+	if(TARGET test_passing_speed_comfort)
+		target_link_libraries(test_passing_speed_comfort ${PROJECT_NAME}_lib)
 	endif()
 endif()
