@@ -3,10 +3,7 @@
 #include <social_nav_utils/ellipse_fitting.h>
 #include <social_nav_utils/gaussians.h>
 
-#include <math.h>
-
-// may prevent compilation errors occurring at calls to matrix.inverse()
-#include <eigen3/Eigen/LU>
+#include <social_nav_utils/math/core.h>
 
 namespace social_nav_utils {
 
@@ -78,33 +75,31 @@ double FormationSpaceIntrusion::computeFormationSpaceGaussian(
 	double robot_pos_y
 ) {
 	// create matrix for covariance rotation
-	Eigen::MatrixXd rot(2, 2);
-	rot << std::cos(ospace_orientation), -std::sin(ospace_orientation),
-		std::sin(ospace_orientation), std::cos(ospace_orientation);
+	Rotation2Dd rot(ospace_orientation);
 
 	// create covariance matrix of the personal zone model
-	Eigen::MatrixXd cov_fsi_init(2, 2);
-	cov_fsi_init << ospace_variance_x, 0.0, 0.0, ospace_variance_y;
+	Matrix2d cov_fsi_init(
+		ospace_variance_x, 0.0,
+		0.0, ospace_variance_y
+	);
 
 	// rotate covariance matrix
-	Eigen::MatrixXd cov_fsi(2, 2);
-	cov_fsi = rot * cov_fsi_init * rot.inverse();
+	Matrix2d cov_fsi = rot * cov_fsi_init * rot.inverse();
 
 	// create covariance matrix of the position estimation uncertainty
-	Eigen::MatrixXd cov_pos(2, 2);
-	cov_pos << pos_center_variance_xx, pos_center_variance_xyyx, pos_center_variance_xyyx, pos_center_variance_yy;
+	Matrix2d cov_pos(
+		pos_center_variance_xx, pos_center_variance_xyyx,
+		pos_center_variance_xyyx, pos_center_variance_yy
+	);
 
 	// resultant covariance matrices (variances summed up)
-	Eigen::MatrixXd cov_result(2, 2);
-	cov_result = cov_pos + cov_fsi;
+	Matrix2d cov_result = cov_pos + cov_fsi;
 
 	// prepare vectors for gaussian calculation
 	// position to check Gaussian against - position of robot
-	Eigen::VectorXd x_pos(2);
-	x_pos << robot_pos_x, robot_pos_y;
+	Vector2d x_pos(robot_pos_x, robot_pos_y);
 	// mean - position of the group
-	Eigen::VectorXd mean_pos(2);
-	mean_pos << ospace_pos_x, ospace_pos_y;
+	Vector2d mean_pos(ospace_pos_x, ospace_pos_y);
 
 	return calculateGaussian(x_pos, mean_pos, cov_result);
 }
