@@ -1,6 +1,6 @@
 #pragma once
 
-#include <eigen3/Eigen/Core>
+#include <social_nav_utils/math/core.h>
 
 namespace social_nav_utils {
 
@@ -131,11 +131,11 @@ protected:
 	 * @defgroup arrangement Current arrangement of agents
 	 * @{
 	 */
-	Eigen::Vector3d pose_ego_;
-	Eigen::Matrix2d cov_pos_ego_;
+	Vector3d pose_ego_;
+	Matrix2d cov_pos_ego_;
 
-	Eigen::Vector3d pose_other_;
-	Eigen::Vector2d vel_other_;
+	Vector3d pose_other_;
+	Vector2d vel_other_;
 
 	double ego_occupancy_model_radius_;
 	double fov_ego_;
