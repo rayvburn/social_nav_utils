@@ -6,10 +6,6 @@
 
 #include <math.h>
 
-#include <eigen3/Eigen/Geometry>
-// may prevent compilation errors occurring at calls to matrix.inverse()
-#include <eigen3/Eigen/LU>
-
 namespace social_nav_utils {
 
 HeadingDirectionDisturbance::HeadingDirectionDisturbance(
@@ -27,14 +23,13 @@ HeadingDirectionDisturbance::HeadingDirectionDisturbance(
 	double occupancy_model_radius,
 	double fov_ego
 ):
-	pose_ego_(Eigen::Vector3d(x_ego, y_ego, yaw_ego)),
-	pose_other_(Eigen::Vector3d(x_other, y_other, yaw_other)),
+	pose_ego_(x_ego, y_ego, yaw_ego),
+	cov_pos_ego_(cov_xx_ego, cov_xy_ego, cov_xy_ego, cov_yy_ego),
+	pose_other_(x_other, y_other, yaw_other),
 	vel_other_(vx_other, vy_other),
 	ego_occupancy_model_radius_(occupancy_model_radius),
 	fov_ego_(fov_ego)
 {
-	cov_pos_ego_ << cov_xx_ego, cov_xy_ego, cov_xy_ego, cov_yy_ego;
-
 	direction_disturbance_scale_ = computeDirectionDisturbance(
 		pose_ego_(0),
 		pose_ego_(1),
@@ -96,15 +91,15 @@ double HeadingDirectionDisturbance::computeDirectionDisturbance(
 	double occupancy_model_radius
 ) {
 	// make vectors really long so the intersection is appropriately detected
-	Eigen::Vector2d v_dir(VECTORS_LEN_INTERSECTION, 0.0);
-	Eigen::Rotation2Dd rot_ego(yaw_ego);
-	Eigen::Rotation2Dd rot_other(yaw_other);
+	Vector2d v_dir(VECTORS_LEN_INTERSECTION, 0.0);
+	Rotation2Dd rot_ego(yaw_ego);
+	Rotation2Dd rot_other(yaw_other);
 	// vectors for shifting from the mean positions
 	auto v_intsec_ego = rot_ego * v_dir;
 	auto v_intsec_other = rot_other * v_dir;
 	// find shifted positions from prolonged vectors
-	Eigen::Vector2d pos_ego(x_ego, y_ego);
-	Eigen::Vector2d pos_other(x_other, y_other);
+	Vector2d pos_ego(x_ego, y_ego);
+	Vector2d pos_other(x_other, y_other);
 	// compute points that are used to find intersection
 	auto pos_ego_shifted1 = pos_ego - v_intsec_ego;
 	auto pos_ego_shifted2 = pos_ego + v_intsec_ego;
@@ -127,20 +122,22 @@ double HeadingDirectionDisturbance::computeDirectionDisturbance(
 	// find covariance matrix of the occupancy model
 	// 2-sigma rule
 	auto var_occup_model = std::pow(occupancy_model_radius / SIGMA_RULE_NUM, 2.0);
-	Eigen::Matrix2d cov_occup;
-	cov_occup << var_occup_model, 0.0,
-		0.0, var_occup_model;
+	Matrix2d cov_occup(
+		var_occup_model, 0.0,
+		0.0, var_occup_model
+	);
 
 	// covariance matrix of the human position estimation uncertainty
-	Eigen::Matrix2d cov_pos_uncert;
-	cov_pos_uncert << cov_xx_ego, cov_xy_ego,
-		cov_xy_ego, cov_yy_ego;
+	Matrix2d cov_pos_uncert(
+		cov_xx_ego, cov_xy_ego,
+		cov_xy_ego, cov_yy_ego
+	);
 
 	// resultant covariance
-	Eigen::Matrix2d cov_result = cov_occup + cov_pos_uncert;
+	Matrix2d cov_result = cov_occup + cov_pos_uncert;
 
 	// find Gaussian at the intersection point
-	Eigen::Vector2d pos_intsec(lin_intsec.getX(), lin_intsec.getY());
+	Vector2d pos_intsec(lin_intsec.getX(), lin_intsec.getY());
 	return calculateGaussian(pos_intsec, pos_ego, cov_result);
 }
 
