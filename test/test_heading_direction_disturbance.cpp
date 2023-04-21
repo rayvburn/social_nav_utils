@@ -70,6 +70,37 @@ TEST(TestHeadingDirection, scales) {
 	EXPECT_NEAR(hdd2.getFovScale(), 0.122681402581972, 1e-03);
 	EXPECT_DOUBLE_EQ(hdd2.getSpeedScale(), 0.55);
 	EXPECT_NEAR(hdd2.getDistScale(), 1.07935165724615, 1e-03);
+
+	/*
+	 * human pos:
+	 *   xo + 0.15,...
+	 *   yo - 0.75,...
+	 *   deg2rad(+10)..
+	 * robot pos:
+	 *   xo - 0.05, ...
+	 *   yo + 0.20, ...
+	 * human pos covariance:
+	 *   cov_h(1,1) = 1.12345;
+	 *   cov_h(1,2) = 0.65445;
+	 *   cov_h(2,1) = 0.65445;
+	 *   cov_h(2,2) = 2.25814;
+	 */
+	HeadingDirectionDisturbance hdd3(
+		+0.15,
+		-0.75,
+		0.174532925199433,
+		1.12345,
+		0.65445,
+		2.25814,
+		-0.05,
+		+0.20,
+		-1.623156204354727,
+		vx_robot,
+		vy_robot,
+		occupancy_model_radius,
+		fov
+	);
+	EXPECT_NEAR(hdd3.getDirectionScale(), 0.104270590851076, 1e-03);
 }
 
 int main(int argc, char** argv) {

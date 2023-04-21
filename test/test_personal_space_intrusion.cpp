@@ -39,6 +39,34 @@ TEST(TestMetricGaussian, personalSpaceGaussian) {
 		true /* unify_asymmetry_scale */
 	);
 	EXPECT_NEAR(gaussian2, 0.0106003940784025, 1e-05);
+
+	/*
+	 * pos = [1.123; 7.321; 0.0];
+	 * quat = quaternion(0, 0, 0.1719802, 0.9851004);
+	 * pcov(1,1) = 1.321654;
+	 * pcov(1,2) = 0.456321;
+	 * pcov(2,1) = 0.456321;
+	 * pcov(2,2) = 0.321654;
+	 * variance_h = 2.00;
+	 * variance_r = 0.50;
+	 * variance_s = 1.00;
+	 */
+	double gaussian3 = PersonalSpaceIntrusion::computePersonalSpaceGaussian(
+		1.123, /* person_pos_x */
+		7.321, /* person_pos_y */
+		0.345678938849738, /* person_orient_yaw */
+		1.321654, /* person_pos_cov_xx */
+		0.456321, /* person_pos_cov_xy */
+		0.456321, /* person_pos_cov_yx */
+		0.321654, /* person_pos_cov_yy */
+		2.00, /* person_ps_var_front */
+		0.50, /* person_ps_var_rear */
+		1.00, /* person_ps_var_side */
+		1.173, /* robot_pos_x */
+		7.821, /* robot_pos_y */
+		true /* unify_asymmetry_scale */
+	);
+	EXPECT_NEAR(gaussian3, 0.0956295, 1e-05);
 }
 
 int main(int argc, char** argv) {
