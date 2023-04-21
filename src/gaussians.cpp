@@ -1,11 +1,6 @@
 #include <social_nav_utils/gaussians.h>
 
-#include <social_nav_utils/relative_location.h>
-
 #include <angles/angles.h>
-#include <eigen3/Eigen/Dense>
-// may prevent compilation errors calling to matrix.inverse()
-#include <eigen3/Eigen/LU>
 
 #include <cmath>
 #include <math.h>
@@ -65,11 +60,11 @@ double calculateGaussianAsymmetrical(
 }
 
 double calculateGaussian(const Eigen::VectorXd& x, const Eigen::VectorXd& mean, const Eigen::MatrixXd& cov) {
-	double n = x.rows();
-	double sqrt2pi = std::sqrt(2 * M_PI);
-	double quadform  = (x - mean).transpose() * cov.inverse() * (x - mean);
-	double norm = std::pow(sqrt2pi, - n) * std::pow(cov.determinant(), -0.5);
-	return norm * exp(-0.5 * quadform);
+	calculateGaussian(x, mean, cov, x.rows());
+}
+
+double calculateGaussian(const Vector2d& x, const Vector2d& mean, const Matrix2d& cov) {
+	calculateGaussian(x, mean, cov, 2.0);
 }
 
 double calculateGaussianAsymmetrical(
@@ -82,27 +77,7 @@ double calculateGaussianAsymmetrical(
 ) {
 	// can't tell if front or rear for 1D
 	assert(x.size() > 1);
-
-	// select covariance according to geometrical arrangement of x and mean
-	RelativeLocation rel_loc(mean(0), mean(1), mean_orientation, x(0), x(1));
-	Eigen::MatrixXd cov;
-	if (rel_loc.isFront()) {
-		cov = cov_front;
-	} else {
-		cov = cov_rear;
-	}
-
-	double scale = 1.0;
-	// unify to the scale in both directions, use the side with a smaller variance
-	if (unify_cov_scale) {
-		double maxfront = calculateGaussian(mean, mean, cov_front);
-		double maxrear = calculateGaussian(mean, mean, cov_rear);
-		// scale will affect only distribution with bigger variance
-		double maxcurr = rel_loc.isFront() ? maxfront : maxrear;
-		scale = std::max(maxrear, maxfront) / maxcurr;
-	}
-
-	return scale * calculateGaussian(x, mean, cov);
+	return calculateGaussianAsymmetrical(x, mean, mean_orientation, cov_front, cov_rear, unify_cov_scale);
 }
 
 } // namespace social_nav_utils
