@@ -4,10 +4,7 @@
 #include <social_nav_utils/relative_location.h>
 #include <social_nav_utils/gaussians.h>
 
-#include <math.h>
-
-// may prevent compilation errors occurring at calls to matrix.inverse()
-#include <eigen3/Eigen/LU>
+#include <social_nav_utils/math/core.h>
 
 namespace social_nav_utils {
 
@@ -95,21 +92,19 @@ double PersonalSpaceIntrusion::computePersonalSpaceGaussian(
 ) {
 	// create matrix for covariance rotation
 	double rot_angle = person_orient_yaw;
-	Eigen::MatrixXd rot(2, 2);
-	rot << std::cos(rot_angle), -std::sin(rot_angle),
-	std::sin(rot_angle), std::cos(rot_angle);
+	Rotation2Dd rot(rot_angle);
 
 	// create human position uncertainty matrix
-	Eigen::MatrixXd cov_p(2, 2);
-	cov_p << person_pos_cov_xx, person_pos_cov_xy, person_pos_cov_yx, person_pos_cov_yy;
+	Matrix2d cov_p(
+		person_pos_cov_xx, person_pos_cov_xy,
+		person_pos_cov_yx, person_pos_cov_yy
+	);
 
 	// prepare vectors for gaussian calculation
 	// position to check Gaussian against - position of robot
-	Eigen::VectorXd x_pos(2);
-	x_pos << robot_pos_x, robot_pos_y;
+	Vector2d x_pos(robot_pos_x, robot_pos_y);
 	// mean - position of human
-	Eigen::VectorXd mean_pos(2);
-	mean_pos << person_pos_x, person_pos_y;
+	Vector2d mean_pos(person_pos_x, person_pos_y);
 
 	/*
 	* Perfect Gaussians in terms of mathematical description. Selecting `unify_asymmetry_scale`,
@@ -134,16 +129,13 @@ double PersonalSpaceIntrusion::computePersonalSpaceGaussian(
 		}
 
 		// create covariance matrix of the personal zone model
-		Eigen::MatrixXd cov_psi_init(2, 2);
-		cov_psi_init << var_h_heading, 0.0, 0.0, person_ps_var_side;
+		Matrix2d cov_psi_init(var_h_heading, 0.0, 0.0, person_ps_var_side);
 
 		// rotate covariance matrix
-		Eigen::MatrixXd cov_psi(2, 2);
-		cov_psi = rot * cov_psi_init * rot.inverse();
+		Matrix2d cov_psi = rot * cov_psi_init * rot.inverse();
 
 		// resultant covariance matrix
-		Eigen::MatrixXd cov_result(2, 2);
-		cov_result = cov_p + cov_psi;
+		Matrix2d cov_result = cov_p + cov_psi;
 
 		// we already know the covariance so there is no need to evaluate the 'Asymmetrical' Gaussian case for `x_pos`
 		return calculateGaussian(x_pos, mean_pos, cov_result);
@@ -154,22 +146,16 @@ double PersonalSpaceIntrusion::computePersonalSpaceGaussian(
 	* to the second one's maximum (in the mean pose)
 	*/
 	// create covariance matrices of the personal zone model
-	Eigen::MatrixXd cov_psi_init_front(2, 2);
-	cov_psi_init_front << person_ps_var_front, 0.0, 0.0, person_ps_var_side;
-	Eigen::MatrixXd cov_psi_init_rear(2, 2);
-	cov_psi_init_rear << person_ps_var_rear, 0.0, 0.0, person_ps_var_side;
+	Matrix2d cov_psi_init_front(person_ps_var_front, 0.0, 0.0, person_ps_var_side);
+	Matrix2d cov_psi_init_rear(person_ps_var_rear, 0.0, 0.0, person_ps_var_side);
 
 	// rotate covariance matrices
-	Eigen::MatrixXd cov_psi_front(2, 2);
-	cov_psi_front = rot * cov_psi_init_front * rot.inverse();
-	Eigen::MatrixXd cov_psi_rear(2, 2);
-	cov_psi_rear = rot * cov_psi_init_rear * rot.inverse();
+	Matrix2d cov_psi_front = rot * cov_psi_init_front * rot.inverse();
+	Matrix2d cov_psi_rear = rot * cov_psi_init_rear * rot.inverse();
 
 	// resultant covariance matrices (variances summed up)
-	Eigen::MatrixXd cov_result_front(2, 2);
-	cov_result_front = cov_p + cov_psi_front;
-	Eigen::MatrixXd cov_result_rear(2, 2);
-	cov_result_rear = cov_p + cov_psi_rear;
+	Matrix2d cov_result_front = cov_p + cov_psi_front;
+	Matrix2d cov_result_rear = cov_p + cov_psi_rear;
 
 	// compute value of asymmetric Gaussian
 	return calculateGaussianAsymmetrical(
