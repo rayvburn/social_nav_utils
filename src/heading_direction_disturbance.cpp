@@ -92,10 +92,11 @@ double HeadingDirectionDisturbance::computeDirectionDisturbance(
 ) {
 	// make vectors really long so the intersection is appropriately detected
 	Vector2d v_dir(VECTORS_LEN_INTERSECTION, 0.0);
-	Rotation2Dd rot_ego(yaw_ego);
+	double yaw_intsec_line = angles::normalize_angle(std::atan2(y_ego - y_other, x_ego - x_other) + M_PI_2);
+	Rotation2Dd rot_intsec_line(yaw_intsec_line);
 	Rotation2Dd rot_other(yaw_other);
 	// vectors for shifting from the mean positions
-	auto v_intsec_ego = rot_ego * v_dir;
+	auto v_intsec_ego = rot_intsec_line * v_dir;
 	auto v_intsec_other = rot_other * v_dir;
 	// find shifted positions from prolonged vectors
 	Vector2d pos_ego(x_ego, y_ego);
