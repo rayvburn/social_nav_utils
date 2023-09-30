@@ -276,6 +276,14 @@ TEST(TestPassingSpeedComfort, splineModel) {
 	EXPECT_NEAR(fun_handle(20.00, 5.0), -25.2126517491493, 1e-09);
 }
 
+TEST(TestPassingSpeedComfort, discomfortNormalized) {
+	PassingSpeedComfort test1(0.123, 0.345);
+	EXPECT_DOUBLE_EQ(test1.getDiscomfortNormalized(), 1.0 - test1.getComfortNormalized());
+
+	PassingSpeedComfort test2(0.987, 0.123);
+	EXPECT_DOUBLE_EQ(test2.getDiscomfortNormalized(), 1.0 - test2.getComfortNormalized());
+}
+
 int main(int argc, char** argv) {
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
