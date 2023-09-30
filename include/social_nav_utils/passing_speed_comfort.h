@@ -40,17 +40,19 @@ public:
 	 * @param distance_min the minimum possible distance between the human and a robot (typically the circumradius
 	 * of the robot's footprint)
 	 * @param speed_max the maximum possible speed achievable by the robot
-	 * @param distance_max
-	 * @param speed_min
-	 * @param simple_method Whether to use the simple method (true) of the spline fitting approach (false)
+	 * @param distance_max distance at which the maximum comfort value occurs (at the speed of @ref speed_min);
+	 * for the simple method: 0.808080808080808 and the spline fitting: 1.40
+	 * @param speed_min speed at which the maximum comfort value occurs (at the distance of @ref distance_max);
+	 * for the simple method: 0.424242424242424 and the spline fitting: 0.00
+	 * @param simple_method Whether to use the simple method (true, default) of the spline fitting approach (false)
 	 */
 	PassingSpeedComfort(
 		double distance,
 		double robot_speed,
 		double distance_min = 0.275,
 		double speed_max = 0.55,
-		double distance_max = 5.0,
-		double speed_min = 0.1,
+		double distance_max = 1.40,
+		double speed_min = 0.0,
 		bool simple_method = false
 	);
 
