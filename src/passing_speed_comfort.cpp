@@ -46,23 +46,27 @@ double PassingSpeedComfort::computeSpeedComfort(double distance, double speed) {
 	// lower boundary
 	const double FAR_DIST_THRESHOLD = 0.8;
 
+	// store the comfort value computed for any of the cases below
+	double comfort = 0.0;
 	if (distance <= CLOSE_DIST_THRESHOLD) {
-		return model_close_fun(speed);
+		comfort = model_close_fun(speed);
 	} else if (distance >= FAR_DIST_THRESHOLD) {
-		return model_far_fun(speed);
+		comfort = model_far_fun(speed);
+	} else {
+		// mixture of models for distances between CLOSE_DIST_THRESHOLD and FAR_DIST_THRESHOLD
+		// results is the average of both outputs
+		double comfort_close = model_close_fun(speed);
+		double comfort_far = model_far_fun(speed);
+
+		double mixing_range = FAR_DIST_THRESHOLD - CLOSE_DIST_THRESHOLD;
+		double dist_from_far = FAR_DIST_THRESHOLD - distance;
+		double close_factor = dist_from_far / mixing_range;
+		double far_factor = 1.0 - close_factor;
+
+		comfort = close_factor * comfort_close + far_factor * comfort_far;
 	}
-
-	// mixture of models for distances between CLOSE_DIST_THRESHOLD and FAR_DIST_THRESHOLD
-	// results is average of both outputs
-	double comfort_close = model_close_fun(speed);
-	double comfort_far = model_far_fun(speed);
-
-	double mixing_range = FAR_DIST_THRESHOLD - CLOSE_DIST_THRESHOLD;
-	double dist_from_far = FAR_DIST_THRESHOLD - distance;
-	double close_factor = dist_from_far / mixing_range;
-	double far_factor = 1.0 - close_factor;
-
-	return close_factor * comfort_close + far_factor * comfort_far;
+	// trim to the lower bound
+	return std::max(comfort, 0.0);
 }
 
 } // namespace social_nav_utils
