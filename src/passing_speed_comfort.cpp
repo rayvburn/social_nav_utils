@@ -48,7 +48,7 @@ double PassingSpeedComfort::computeSpeedComfort(double distance, double speed) {
 
 	if (distance <= CLOSE_DIST_THRESHOLD) {
 		return model_close_fun(speed);
-	} else if (distance >= CLOSE_DIST_THRESHOLD) {
+	} else if (distance >= FAR_DIST_THRESHOLD) {
 		return model_far_fun(speed);
 	}
 
