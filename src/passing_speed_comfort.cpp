@@ -25,19 +25,19 @@ double PassingSpeedComfort::computeSpeedComfort(double distance, double speed) {
 	// fitted model for close passing distances
 	auto model_close_fun = [model_exp2_fun](double speed) -> double {
 		// coefficients
-		const double a = 6.023;
-		const double b = -0.2822;
-		const double c = -0.9639;
-		const double d = -3.905;
+		const double a = 6.022541906829932;
+		const double b = -0.282233847093237;
+		const double c = -0.963915948883583;
+		const double d = -3.904914546865386;
 		return model_exp2_fun(a, b, c, d, speed);
 	};
 	// fitted model for far passing distances
 	auto model_far_fun = [model_exp2_fun](double speed) -> double {
 		// coefficients
-		const double a = 8.385;
-		const double b = -0.2633;
-		const double c = -3.759;
-		const double d = -2.304;
+		const double a = 6.518175639643890;
+		const double b = 0.098435276370722;
+		const double c = -0.427768878118209;
+		const double d = 1.017851222030475;
 		return model_exp2_fun(a, b, c, d, speed);
 	};
 
