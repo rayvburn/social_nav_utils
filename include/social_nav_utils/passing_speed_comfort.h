@@ -64,6 +64,10 @@ public:
 		return comfort_normalized_;
 	}
 
+	double getDiscomfortNormalized() const {
+		return std::max(std::min(1.0 - getComfortNormalized(), 1.0), 0.0);
+	}
+
 	/**
 	 * Estimates the normalized (0.0 - 1.0) human comfort using the simple method
 	 */
