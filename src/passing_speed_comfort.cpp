@@ -5,8 +5,25 @@
 
 namespace social_nav_utils {
 
-PassingSpeedComfort::PassingSpeedComfort(double distance, double robot_speed) {
-	comfort_ = computeSpeedComfort(distance, robot_speed);
+PassingSpeedComfort::PassingSpeedComfort(
+	double distance,
+	double robot_speed,
+	double distance_min,
+	double speed_max,
+	double distance_max,
+	double speed_min
+) {
+	std::function<double(double,double)> calc_fun = &PassingSpeedComfort::computeSpeedComfort;
+
+	comfort_ = calc_fun(distance, robot_speed);
+	comfort_normalized_ = computeSpeedComfortNormalized(
+		comfort_,
+		distance_min,
+		speed_max,
+		distance_max,
+		speed_min,
+		calc_fun
+	);
 }
 
 double PassingSpeedComfort::computeSpeedComfort(double distance, double speed) {
@@ -67,6 +84,42 @@ double PassingSpeedComfort::computeSpeedComfort(double distance, double speed) {
 	}
 	// trim to the lower bound
 	return std::max(comfort, 0.0);
+}
+
+double PassingSpeedComfort::computeSpeedComfortNormalized(
+	double dist,
+	double speed,
+	double dist_min,
+	double speed_max,
+	double dist_max,
+	double speed_min,
+	std::function<double(double,double)>& calc_fun
+) {
+	double comfort = calc_fun(dist, speed);
+	return computeSpeedComfortNormalized(
+		comfort,
+		dist_min,
+		speed_max,
+		dist_max,
+		speed_min,
+		calc_fun
+	);
+}
+
+double PassingSpeedComfort::computeSpeedComfortNormalized(
+	double comfort,
+	double dist_min,
+	double speed_max,
+	double dist_max,
+	double speed_min,
+	std::function<double(double,double)>& calc_fun
+) {
+	double comfort_min = calc_fun(dist_min, speed_max);
+	double comfort_max = calc_fun(dist_max, speed_min);
+
+	double normalized = (comfort - comfort_min) / (comfort_max - comfort_min);
+	// trim to 0.0 - 1.0 bounds
+	return std::max(std::min(normalized, 1.0), 0.0);
 }
 
 } // namespace social_nav_utils
