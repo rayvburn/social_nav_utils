@@ -14,7 +14,7 @@ namespace social_nav_utils {
  *
  * Disturbance is modelled by a Gaussian function. Its values are computed by arguments given in domain of angles.
  * For further details check `dirCross` concept (location of the intersection point of i and j direction rays
- * in relation to the i centre) in `hubero_local_planner`. Here, `i` is the person and `j` is the robot.
+ * in relation to the i centre) in the `humap_local_planner`. Here, `i` is the person and `j` is the robot.
  */
 class HeadingDirectionDisturbance {
 public:
@@ -52,19 +52,19 @@ public:
 	 * @param fov_ego total angular field of view of the ego agent
 	 */
 	HeadingDirectionDisturbance(
-		double x_human,
-		double y_human,
-		double yaw_human,
-		double cov_xx_human,
-		double cov_xy_human,
-		double cov_yy_human,
-		double x_robot,
-		double y_robot,
-		double yaw_robot,
-		double vx_robot,
-		double vy_robot,
-		double human_occupancy_radius = OCCUPANCY_MODEL_RADIUS_DEFAULT,
-		double fov_human = FOV_DEFAULT
+		double x_ego,
+		double y_ego,
+		double yaw_ego,
+		double cov_xx_ego,
+		double cov_xy_ego,
+		double cov_yy_ego,
+		double x_other,
+		double y_other,
+		double yaw_other,
+		double vx_other,
+		double vy_other,
+		double occupancy_model_radius = OCCUPANCY_MODEL_RADIUS_DEFAULT,
+		double fov_ego = FOV_DEFAULT
 	);
 
 	/**
