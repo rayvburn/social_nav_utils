@@ -104,7 +104,8 @@ double HeadingDirectionDisturbance::computeDirectionDisturbance(
 	// compute points that are used to find intersection
 	auto pos_ego_shifted1 = pos_ego - v_intsec_ego;
 	auto pos_ego_shifted2 = pos_ego + v_intsec_ego;
-	auto pos_other_shifted1 = pos_other - v_intsec_other;
+	// NOTE: we are not interested in intersection points that are behind the robot ("other") disturbing the human
+	auto pos_other_shifted1 = pos_other;
 	auto pos_other_shifted2 = pos_other + v_intsec_other;
 
 	LinesIntersection lin_intsec(
