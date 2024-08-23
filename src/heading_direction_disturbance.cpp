@@ -80,7 +80,7 @@ bool HeadingDirectionDisturbance::normalize(double other_circumradius, double ma
 	double fov_no_clip = fov_scale_;
 	fov_scale_ = std::max(std::min(fov_scale_, 1.0), 0.0);
 
-	speed_scale_ /= max_speed;
+	speed_scale_ /= speed_scale_max;
 	double speed_no_clip = speed_scale_;
 	speed_scale_ = std::max(std::min(speed_scale_, 1.0), 0.0);
 
