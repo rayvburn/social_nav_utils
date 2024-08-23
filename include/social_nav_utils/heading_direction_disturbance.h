@@ -75,8 +75,11 @@ public:
 	 * @param other_circumradius radius of the 'other' (robot) taken into calculation of minimum possible distance
 	 * between 'ego' (human) and the 'other' (robot)
 	 * @param max_speed maximum linear velocity of the 'other' agent (robot)
+	 * @return true Indicates that normalization has been performed correctly without the need to clip any scale
+	 * @return false Indicates that metric scales had to be clipped to 0.0 - 1.0 range. It might indicate that the
+	 * input data are corrupted
 	 */
-	void normalize(double other_circumradius = CIRCUMRADIUS_DEFAULT, double max_speed = MAX_SPEED_DEFAULT);
+	bool normalize(double other_circumradius = CIRCUMRADIUS_DEFAULT, double max_speed = MAX_SPEED_DEFAULT);
 
 	double getDirectionScale() const {
 		return direction_disturbance_scale_;
