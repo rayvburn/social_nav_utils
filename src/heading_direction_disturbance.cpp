@@ -48,7 +48,7 @@ HeadingDirectionDisturbance::HeadingDirectionDisturbance(
 	distance_scale_ = computeDistScale(pose_ego_(0), pose_ego_(1), pose_other_(0), pose_other_(1));
 }
 
-void HeadingDirectionDisturbance::normalize(double other_circumradius, double max_speed) {
+bool HeadingDirectionDisturbance::normalize(double other_circumradius, double max_speed) {
 	// let's assume that yaw of 'other' that  points straight into the center of 'ego'
 	auto v_eo = pose_ego_ - pose_other_;
 	double yaw_other_max_disturbance = std::atan2(v_eo(1), v_eo(0));
@@ -73,9 +73,30 @@ void HeadingDirectionDisturbance::normalize(double other_circumradius, double ma
 
 	// normalize scales
 	direction_disturbance_scale_ /= direction_disturbance_scale_max;
+	double direction_disturbance_no_clip = direction_disturbance_scale_;
+	direction_disturbance_scale_ = std::max(std::min(direction_disturbance_scale_, 1.0), 0.0);
+
 	fov_scale_ /= fov_scale_max;
-	speed_scale_ /= max_speed;
+	double fov_no_clip = fov_scale_;
+	fov_scale_ = std::max(std::min(fov_scale_, 1.0), 0.0);
+
+	speed_scale_ /= speed_scale_max;
+	double speed_no_clip = speed_scale_;
+	speed_scale_ = std::max(std::min(speed_scale_, 1.0), 0.0);
+
 	distance_scale_ /= dist_scale_min;
+	double distance_no_clip = distance_scale_;
+	distance_scale_ = std::max(distance_scale_, 1.0);
+
+	if (
+		direction_disturbance_no_clip != direction_disturbance_scale_
+		|| fov_scale_ != fov_no_clip
+		|| speed_scale_ != speed_no_clip
+		|| distance_scale_ != distance_no_clip
+	) {
+		return false;
+	}
+	return true;
 }
 
 double HeadingDirectionDisturbance::computeDirectionDisturbance(
@@ -104,7 +125,8 @@ double HeadingDirectionDisturbance::computeDirectionDisturbance(
 	// compute points that are used to find intersection
 	auto pos_ego_shifted1 = pos_ego - v_intsec_ego;
 	auto pos_ego_shifted2 = pos_ego + v_intsec_ego;
-	auto pos_other_shifted1 = pos_other - v_intsec_other;
+	// NOTE: we are not interested in intersection points that are behind the robot ("other") disturbing the human
+	auto pos_other_shifted1 = pos_other;
 	auto pos_other_shifted2 = pos_other + v_intsec_other;
 
 	LinesIntersection lin_intsec(
